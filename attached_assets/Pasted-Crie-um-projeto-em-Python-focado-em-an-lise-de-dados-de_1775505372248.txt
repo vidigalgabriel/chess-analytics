@@ -1,0 +1,126 @@
+Crie um projeto em Python focado em análise de dados de partidas de xadrez. NÃO incluir frontend, API web, banco de dados ou qualquer servidor.
+
+O código deve ser modular, limpo, e preparado para futuramente ser integrado a uma API (FastAPI) e frontend.
+
+### OBJETIVO
+Analisar partidas de xadrez a partir de arquivos PGN e gerar métricas estruturadas que possam ser consumidas por uma API no futuro.
+
+---
+
+### REQUISITOS FUNCIONAIS
+
+1. Leitura de PGN:
+- Usar python-chess
+- Suportar múltiplos arquivos PGN em uma pasta `/data`
+- Ignorar partidas inválidas ou incompletas
+
+2. Extração de dados:
+Para cada partida, extrair:
+- Ano da partida
+- Primeiro lance das brancas:
+  - e4, d4, c4, Nf3 ou "Other"
+- Resposta das pretas baseada EXCLUSIVAMENTE no primeiro lance das brancas:
+
+Contra e4:
+- e5, c5, d5, e6, c6 ou "Other"
+
+Contra d4:
+- d5+e6
+- d5+c6
+- Nf6+e6
+- Nf6+g6
+- Other
+
+Contra c4:
+- e5, c5, d5, e6, c6, Nf6, g6 ou "Other"
+
+Contra Nf3:
+- e5, c5, d5, e6, c6, Nf6, g6 ou "Other"
+
+IMPORTANTE:
+- Só classificar resposta das pretas se o primeiro lance for exatamente o esperado
+- Caso contrário, classificar como "Other"
+- Garantir consistência dos dados
+
+3. Estrutura dos dados:
+Criar um DataFrame com colunas:
+- year
+- decade
+- white_first_move
+- black_response
+- result (1-0, 0-1, 1/2-1/2)
+
+4. Métricas:
+Calcular por década (e também permitir por ano):
+- frequency (%)
+- white_win_rate (%)
+- black_win_rate (%)
+- draw_rate (%)
+- score médio (win=1, draw=0.5, loss=0)
+
+5. Funções principais:
+Criar funções reutilizáveis:
+
+- load_games(path) → retorna DataFrame bruto
+- process_games(df) → limpa e categoriza dados
+- compute_metrics(df, group_by="decade") → retorna métricas agregadas
+- filter_data(df, start_year, end_year, white_move=None)
+
+6. Output:
+- Export CSV com métricas
+- Função que retorna dados prontos para visualização (sem plotar)
+
+---
+
+### ESTRUTURA DO PROJETO
+
+project/
+├── data/
+├── parser.py
+├── processing.py
+├── analytics.py
+├── main.py
+├── requirements.txt
+
+---
+
+### REQUISITOS TÉCNICOS
+
+- Usar pandas e numpy
+- Usar python-chess para parsing
+- Código sem comentários explicativos desnecessários
+- Código limpo e legível
+- Separação clara entre parsing, processamento e analytics
+- Evitar hardcode de caminhos
+- Preparar funções para fácil uso futuro em API (retornar DataFrames ou dicts)
+
+---
+
+### MAIN
+
+O arquivo main.py deve:
+
+- Carregar PGNs da pasta /data
+- Processar dados
+- Calcular métricas por década
+- Imprimir amostra no console
+- Exportar CSV com resultados
+
+---
+
+### IMPORTANTE PARA FUTURO
+
+O código deve ser estruturado de forma que:
+
+- compute_metrics possa ser facilmente usado em uma API REST
+- dados possam ser convertidos para JSON facilmente
+- nenhuma lógica esteja presa ao main.py
+
+---
+
+### FINAL
+
+Gerar um projeto completo, pronto para rodar com:
+
+pip install -r requirements.txt
+python main.py

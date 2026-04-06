@@ -1,0 +1,6 @@
+decade,white_first_move,black_response,total_games,frequency_pct,white_win_rate,black_win_rate,draw_rate,avg_score
+1980,Nf3,d5,1,20.0,100.0,0.0,0.0,1.0
+1990,e4,e5,1,20.0,100.0,0.0,0.0,1.0
+2000,d4,Other,1,20.0,0.0,100.0,0.0,0.0
+2010,c4,e5,1,20.0,0.0,0.0,100.0,0.5
+2010,e4,c5,1,20.0,0.0,100.0,0.0,0.0
