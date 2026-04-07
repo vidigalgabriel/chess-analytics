@@ -51,3 +51,13 @@ def aggregate_black_response(df):
     result["drawrate"] = result["draws"] / result["games"]
 
     return result
+
+
+
+def filter_data(df, start_year=None, end_year=None):
+    if start_year:
+        df = df[df["year"] >= start_year]
+    if end_year:
+        df = df[df["year"] <= end_year]
+    return df
+   

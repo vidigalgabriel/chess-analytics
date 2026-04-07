@@ -1,21 +1,29 @@
-from fastapi import FastAPI
-from chess_analysis.parser import load_games
-from chess_analysis.processing import process_games
-from chess_analysis.analytics import compute_metrics, filter_data
+from fastapi import FastAPI, Query
+from chess_analysis.analytics_fast import (
+    load_data,
+    aggregate_white_first_move,
+    aggregate_black_response,
+    filter_data
+)
 
 app = FastAPI()
 
-df_global = None
+df = load_data()
 
-@app.on_event("startup")
-def startup():
-    global df_global
-    df = load_games("chess_analysis/data")
-    df = process_games(df)
-    df_global = df
+@app.get("/white-moves")
+def get_white_moves(
+    start_year: int = Query(None),
+    end_year: int = Query(None)
+):
+    filtered = filter_data(df, start_year, end_year)
+    result = aggregate_white_first_move(filtered)
+    return result.to_dict(orient="records")
 
-@app.get("/metrics")
-def metrics(start_year: int = 1800, end_year: int = 2025):
-    df = filter_data(df_global, start_year, end_year)
-    result = compute_metrics(df)
+@app.get("/black-responses")
+def get_black_responses(
+    start_year: int = Query(None),
+    end_year: int = Query(None)
+):
+    filtered = filter_data(df, start_year, end_year)
+    result = aggregate_black_response(filtered)
     return result.to_dict(orient="records")
