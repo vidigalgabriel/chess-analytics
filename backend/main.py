@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from chess_analysis.analytics_fast import (
     load_data,
     aggregate_white_first_move,
@@ -8,22 +8,18 @@ from chess_analysis.analytics_fast import (
 
 app = FastAPI()
 
-df = load_data()
+df = load_data("data/processed_games.csv")
 
-@app.get("/white-moves")
-def get_white_moves(
-    start_year: int = Query(None),
-    end_year: int = Query(None)
-):
-    filtered = filter_data(df, start_year, end_year)
-    result = aggregate_white_first_move(filtered)
+
+@app.get("/white_moves")
+def get_white_moves(start_year: int = None, end_year: int = None):
+    data = filter_data(df, start_year, end_year)
+    result = aggregate_white_first_move(data)
     return result.to_dict(orient="records")
 
-@app.get("/black-responses")
-def get_black_responses(
-    start_year: int = Query(None),
-    end_year: int = Query(None)
-):
-    filtered = filter_data(df, start_year, end_year)
-    result = aggregate_black_response(filtered)
+
+@app.get("/black_responses")
+def get_black_responses(start_year: int = None, end_year: int = None):
+    data = filter_data(df, start_year, end_year)
+    result = aggregate_black_response(data)
     return result.to_dict(orient="records")
