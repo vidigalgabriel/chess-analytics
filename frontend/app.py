@@ -9,120 +9,100 @@ st.set_page_config(layout="wide")
 
 st.title("Chess Opening Analytics")
 
-# ----------------------
-# Sidebar filtros
-# ----------------------
-
 st.sidebar.header("Filtros")
 
 start_year = st.sidebar.number_input("Ano inicial", value=2000)
 end_year = st.sidebar.number_input("Ano final", value=2025)
 
-metric = st.sidebar.selectbox(
-    "Métrica",
-    ["games", "white_winrate", "black_winrate", "drawrate"]
-)
+metric_map = {
+    "Games": "games",
+    "Winrate Brancas": "white_winrate",
+    "Winrate Pretas": "black_winrate",
+    "Empates": "drawrate",
+    "Score Médio": "avg_score",
+    "Frequência": "frequency"
+}
 
-top_n = st.sidebar.slider("Top respostas das pretas", 3, 10, 5)
+metric_label = st.sidebar.selectbox("Métrica", list(metric_map.keys()))
+metric = metric_map[metric_label]
 
-if st.sidebar.button("Atualizar"):
-    st.rerun()
-
-# ----------------------
-# Requests API
-# ----------------------
+top_n = st.sidebar.slider("Top N respostas", 3, 12, 6)
 
 params = {
     "start_year": int(start_year),
     "end_year": int(end_year)
 }
 
-try:
-    white_resp = requests.get(f"{API_URL}/white_moves", params=params)
-    black_resp = requests.get(f"{API_URL}/black_responses", params=params)
+def load(endpoint):
+    try:
+        r = requests.get(f"{API_URL}{endpoint}", params=params)
+        return pd.DataFrame(r.json())
+    except:
+        return pd.DataFrame()
 
-    df_white = pd.DataFrame(white_resp.json())
-    df_black = pd.DataFrame(black_resp.json())
+df_white = load("/white_moves")
+df_e4 = load("/black_responses/e4")
+df_d4 = load("/black_responses/d4")
+df_c4 = load("/black_responses/c4")
+df_nf3 = load("/black_responses/nf3")
 
-except Exception as e:
-    st.error("Erro ao conectar com backend")
-    st.stop()
+def prepare(df, group_col):
+    if df.empty:
+        return df
+    df = df[df[group_col] != "other"]
+    top = (
+        df.groupby(group_col)["games"]
+        .sum()
+        .nlargest(top_n)
+        .index
+    )
+    return df[df[group_col].isin(top)].sort_values("decade")
 
-# ----------------------
-# Layout
-# ----------------------
+def plot(df, title, group_col):
+    if df.empty:
+        st.warning("Sem dados")
+        return
+    fig = px.line(
+        df,
+        x="decade",
+        y=metric,
+        color=group_col,
+        markers=True,
+        title=title
+    )
+    fig.update_layout(
+        height=400,
+        legend_title_text="",
+        margin=dict(l=10, r=10, t=40, b=10)
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+df_white = prepare(df_white, "white_move")
+df_e4 = prepare(df_e4, "black_response")
+df_d4 = prepare(df_d4, "black_response")
+df_c4 = prepare(df_c4, "black_response")
+df_nf3 = prepare(df_nf3, "black_response")
+
+plot(df_white, "White First Moves", "white_move")
 
 col1, col2 = st.columns(2)
 
-# ----------------------
-# White moves
-# ----------------------
-
 with col1:
-    st.subheader("White First Moves")
-
-    if not df_white.empty:
-        df_white = df_white.sort_values("decade")
-
-        fig1 = px.line(
-            df_white,
-            x="decade",
-            y=metric,
-            color="white_move",
-            markers=True
-        )
-
-        st.plotly_chart(fig1, use_container_width=True)
-
-        with st.expander("Ver dados"):
-            st.dataframe(df_white)
-
-        st.download_button(
-            "Download CSV",
-            df_white.to_csv(index=False),
-            file_name="white_moves.csv"
-        )
-    else:
-        st.warning("Sem dados")
-
-# ----------------------
-# Black responses
-# ----------------------
+    plot(df_e4, "Respostas vs 1.e4", "black_response")
+    plot(df_c4, "Respostas vs 1.c4", "black_response")
 
 with col2:
-    st.subheader("Black Responses")
+    plot(df_d4, "Respostas vs 1.d4", "black_response")
+    plot(df_nf3, "Respostas vs 1.Nf3", "black_response")
 
-    if not df_black.empty:
-        df_black = df_black.sort_values(["decade", "black_response"])
+st.divider()
 
-        top_responses = (
-            df_black.groupby("black_response")["games"]
-            .sum()
-            .nlargest(top_n)
-            .index
-        )
+st.subheader("Resumo")
 
-        df_filtered = df_black[
-            df_black["black_response"].isin(top_responses)
-        ]
+col3, col4 = st.columns(2)
 
-        fig2 = px.bar(
-            df_filtered,
-            x="decade",
-            y=metric,
-            color="black_response",
-            barmode="group"
-        )
+with col3:
+    st.dataframe(df_white, use_container_width=True)
 
-        st.plotly_chart(fig2, use_container_width=True)
-
-        with st.expander("Ver dados"):
-            st.dataframe(df_filtered)
-
-        st.download_button(
-            "Download CSV",
-            df_filtered.to_csv(index=False),
-            file_name="black_responses.csv"
-        )
-    else:
-        st.warning("Sem dados")
+with col4:
+    st.dataframe(df_e4, use_container_width=True)
