@@ -1,54 +1,45 @@
 from fastapi import FastAPI
-from chess_analysis.analytics_fast import (
-    load_data,
-    aggregate_white_first_move,
-    aggregate_black_response,
-    filter_data
-)
+import pandas as pd
 
 app = FastAPI()
 
-df = load_data("data/processed_games.csv")
+df = pd.read_csv("chess_analysis/data/test_sample.csv")
+
+def filter_data(df, start_year, end_year):
+    if start_year:
+        df = df[df["year"] >= start_year]
+    if end_year:
+        df = df[df["year"] <= end_year]
+    return df
+
+def aggregate_openings(df):
+    df["decade"] = (df["year"] // 10) * 10
+
+    grouped = (
+        df.groupby(["decade", "opening"])
+        .agg(
+            games=("result", "count"),
+            white_wins=("result", lambda x: (x == "1-0").sum()),
+            black_wins=("result", lambda x: (x == "0-1").sum()),
+            draws=("result", lambda x: (x == "1/2-1/2").sum()),
+        )
+        .reset_index()
+    )
+
+    grouped["white_winrate"] = grouped["white_wins"] / grouped["games"]
+    grouped["black_winrate"] = grouped["black_wins"] / grouped["games"]
+    grouped["drawrate"] = grouped["draws"] / grouped["games"]
+    grouped["avg_score"] = (
+        grouped["white_wins"] + 0.5 * grouped["draws"]
+    ) / grouped["games"]
+
+    grouped["frequency"] = grouped["games"] / grouped.groupby("decade")["games"].transform("sum")
+
+    return grouped
 
 
-@app.get("/white_moves")
-def get_white_moves(start_year: int = None, end_year: int = None):
+@app.get("/openings")
+def get_openings(start_year: int = None, end_year: int = None):
     data = filter_data(df, start_year, end_year)
-    result = aggregate_white_first_move(data)
+    result = aggregate_openings(data)
     return result.to_dict(orient="records")
-
-
-@app.get("/black_responses")
-def get_black_responses(start_year: int = None, end_year: int = None):
-    data = filter_data(df, start_year, end_year)
-    result = aggregate_black_response(data)
-    return result.to_dict(orient="records")
-
-@app.get("/black_responses/e4")
-def get_black_e4(start_year: int = None, end_year: int = None):
-    data = filter_data(df, start_year, end_year)
-    result = aggregate_black_response_by_white(data, "e4")
-    return result.to_dict(orient="records")
-
-
-@app.get("/black_responses/d4")
-def get_black_d4(start_year: int = None, end_year: int = None):
-    data = filter_data(df, start_year, end_year)
-    result = aggregate_black_response_by_white(data, "d4")
-    return result.to_dict(orient="records")
-
-
-@app.get("/black_responses/c4")
-def get_black_c4(start_year: int = None, end_year: int = None):
-    data = filter_data(df, start_year, end_year)
-    result = aggregate_black_response_by_white(data, "c4")
-    return result.to_dict(orient="records")
-
-
-@app.get("/black_responses/nf3")
-def get_black_nf3(start_year: int = None, end_year: int = None):
-    data = filter_data(df, start_year, end_year)
-    result = aggregate_black_response_by_white(data, "Nf3")
-    return result.to_dict(orient="records")
-
-from chess_analysis.analytics_fast import aggregate_black_response_by_white

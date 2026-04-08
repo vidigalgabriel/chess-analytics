@@ -1,0 +1,323 @@
+# Chess Openings Analysis Project
+
+## Overview
+
+Projeto de análise de partidas de xadrez em larga escala a partir de arquivos PGN. O sistema extrai dados relevantes, classifica aberturas e fornece visualização interativa via frontend.
+
+---
+
+## Estrutura do Projeto
+
+```
+Data-Analyst-Python/
+│
+├── backend/
+│   └── main.py
+│
+├── frontend/
+│   └── app.py
+│
+├── chess_analysis/
+│   ├── data/
+│   │   ├── caissapng.pgn
+│   │   ├── test_sample.csv
+│   │   └── processed_full.csv
+│   ├── stream_parser.py
+│   └── run_stream.py
+│
+├── venv/
+└── requirements.txt
+```
+
+---
+
+## Pipeline de Dados
+
+### 1. Entrada
+
+Arquivo PGN contendo partidas:
+
+```
+data/caissapng.pgn
+```
+
+---
+
+### 2. Processamento
+
+Arquivo:
+
+```
+chess_analysis/stream_parser.py
+```
+
+Funções principais:
+
+* `process_pgn_stream`
+* `extract_game_data`
+* `classify_opening`
+
+O processamento:
+
+* Lê o PGN em streaming
+* Extrai:
+
+  * ano
+  * resultado
+  * primeiros 12 plies
+* Classifica abertura
+* Salva em CSV
+
+---
+
+### 3. Saída
+
+CSV gerado:
+
+```
+year,result,opening
+2024,1-0,Najdorf
+2024,1/2-1/2,French Classical
+```
+
+---
+
+## Classificação de Aberturas
+
+Atualmente suporta:
+
+### e4 e5
+
+* Ruy Lopez
+* Italian Game
+* Scotch Game
+* Outros
+
+### Siciliana
+
+* Najdorf
+* Classical
+* Taimanov/Kan
+* Dragon
+* Outros
+
+### Francesa
+
+* Classical
+* Tarrasch
+* Advance
+* Exchange
+
+### Caro-Kann
+
+* Classical
+* Advance
+* Exchange
+
+### d4 systems
+
+* QGD
+* QGA
+* Slav
+* Nimzo-Indian
+* Queen’s Indian
+* King’s Indian
+* Grunfeld
+
+---
+
+## Backend (FastAPI)
+
+Arquivo:
+
+```
+backend/main.py
+```
+
+### Endpoint
+
+```
+GET /openings
+```
+
+Parâmetros opcionais:
+
+```
+start_year
+end_year
+```
+
+Retorna:
+
+```
+[
+  {
+    "decade": 2020,
+    "opening": "Najdorf",
+    "games": 1000,
+    "white_winrate": 0.52,
+    "black_winrate": 0.30,
+    "drawrate": 0.18,
+    "avg_score": 0.61,
+    "frequency": 0.12
+  }
+]
+```
+
+---
+
+## Frontend (Streamlit)
+
+Arquivo:
+
+```
+frontend/app.py
+```
+
+### Funcionalidades
+
+* Filtro por intervalo de anos
+* Seleção de métrica:
+
+  * frequency
+  * white_winrate
+  * black_winrate
+  * drawrate
+  * avg_score
+* Gráficos por categoria:
+
+  * e4 e5
+  * Sicilian
+  * French
+  * Caro-Kann
+  * d4 systems
+* Tabela geral de dados
+
+---
+
+## Como Rodar
+
+### 1. Ativar ambiente virtual
+
+```
+venv\Scripts\Activate.ps1
+```
+
+---
+
+### 2. Instalar dependências
+
+```
+pip install fastapi uvicorn pandas streamlit plotly chess
+```
+
+---
+
+### 3. Processar dados (amostra)
+
+```
+python chess_analysis/run_stream.py
+```
+
+---
+
+### 4. Rodar backend
+
+```
+python -m uvicorn backend.main:app --reload
+```
+
+---
+
+### 5. Rodar frontend
+
+```
+cd frontend
+streamlit run app.py
+```
+
+---
+
+## Estratégia para Processamento Completo
+
+Para 4.5 milhões de partidas:
+
+1. Testar com:
+
+```
+max_games=100000
+```
+
+2. Validar CSV
+
+3. Rodar completo:
+
+```
+max_games=None
+min_year=None
+max_year=None
+```
+
+---
+
+## Próximas Melhorias
+
+### Dados
+
+* Expandir classificação de aberturas
+* Separar variantes mais profundas
+* Adicionar ECO codes
+
+### Performance
+
+* Paralelização do parsing
+* Uso de PyArrow ou Polars
+
+### Backend
+
+* Endpoints por abertura específica
+* Cache de resultados
+* Agregações pré-computadas
+
+### Frontend
+
+* Melhorar design
+* Filtros por abertura específica
+* Drill-down interativo
+* Heatmaps e distribuições
+
+### Infra
+
+* Docker
+* Deploy (Render / Railway / AWS)
+* Banco de dados (PostgreSQL)
+
+---
+
+## Problemas Comuns
+
+### Arquivo não encontrado
+
+Corrigir caminho relativo do PGN
+
+### Módulos não encontrados
+
+Ativar venv e instalar dependências
+
+### Slider erro (Streamlit)
+
+Ocorre quando há apenas um ano no dataset
+
+---
+
+## Observações
+
+* Processamento é CPU-bound e pode demorar horas em datasets grandes
+* Streaming evita uso excessivo de memória
+* Classificação atual é heurística (pode ser refinada)
+
+---
+
+## Objetivo do Projeto
+
+Construir uma base sólida para análise estatística de aberturas de xadrez em larga escala, permitindo evolução para análises mais profundas e aplicações mais robustas.
