@@ -23,7 +23,7 @@ st.markdown(
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("../chess_analysis/data/test_sample.csv")
+    df = pd.read_csv("../chess_analysis/data/final_dataset.csv")
     df["decade"] = (df["year"] // 10) * 10
     return df
 
@@ -45,8 +45,6 @@ def compute_stats(df):
     grouped["avg_score"] = (
         grouped["white_wins"] + 0.5 * grouped["draws"]
     ) / grouped["games"]
-
-    grouped["frequency"] = grouped["games"] / grouped.groupby("decade")["games"].transform("sum")
 
     return grouped
 
@@ -99,6 +97,8 @@ def plot_category(title, openings):
     )
 
     data = data[data["opening"].isin(top_openings)]
+
+    data["frequency"] = data["games"] / data.groupby("decade")["games"].transform("sum")
 
     if chart_type == "line":
         fig = px.line(
