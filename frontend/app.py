@@ -6,9 +6,101 @@ import plotly.express as px
 df = pd.read_csv("../chess_analysis/data/final_dataset.csv")
 df["decade"] = (df["year"] // 10) * 10
 
-def compute_stats(df):
-    grouped = (
-        df.groupby(["decade", "opening"])
+def norm_e4e5(op):
+    op = str(op)
+    if op in ["Ruy Lopez", "Italian Game", "Scotch Game"]:
+        return op
+    if "Open Game" in op or op.startswith("e4 e5"):
+        return "Other"
+    return None
+
+def norm_sic2(op):
+    op = str(op)
+    if "Sicilian" not in op:
+        return None
+    if "Najdorf" in op or "d6" in op:
+        return "d6"
+    if "Taimanov" in op or "Kan" in op or "e6" in op:
+        return "e6"
+    if "Classical" in op or "Nc6" in op or "Sveshnikov" in op:
+        return "Nc6"
+    if "Dragon" in op or "g6" in op:
+        return "g6"
+    return "Other"
+
+def norm_sic_open(op):
+    op = str(op)
+    if "Sicilian" not in op:
+        return None
+    if "Najdorf" in op:
+        return "Najdorf"
+    if "Scheveningen" in op or "Scheveninguen" in op:
+        return "Scheveningen"
+    if "Sveshnikov" in op:
+        return "Sveshnikov"
+    if "Dragon" in op and "Accelerated" not in op:
+        return "Dragon"
+    if "Accelerated Dragon" in op:
+        return "Accelerated Dragon"
+    if "Classical" in op:
+        return "Classical"
+    if "Taimanov" in op or "Kan" in op:
+        return "Taimanov/Kan"
+    return "Other"
+
+def norm_french(op):
+    op = str(op)
+    if "French" not in op:
+        return None
+    if "Advance" in op:
+        return "Advance"
+    if "Tarrasch" in op:
+        return "Tarrasch"
+    if "Exchange" in op:
+        return "Exchange"
+    if "Classical" in op:
+        return "Classical"
+    return "Other"
+
+def norm_caro(op):
+    op = str(op)
+    if "Caro" not in op:
+        return None
+    if "Advance" in op:
+        return "Advance"
+    if "Exchange" in op:
+        return "Exchange"
+    if "Classical" in op:
+        return "Classical"
+    return "Other"
+
+def norm_d4(op):
+    op = str(op)
+    if "Queen" in op or "QGD" in op:
+        return "QGD"
+    if "QGA" in op:
+        return "QGA"
+    if "Slav" in op:
+        return "Slav"
+    if "Nimzo" in op:
+        return "Nimzo"
+    if "King's Indian" in op:
+        return "KID"
+    if "Grunfeld" in op:
+        return "Grunfeld"
+    return None
+
+df["e4e5"] = df["opening"].apply(norm_e4e5)
+df["sic2"] = df["opening"].apply(norm_sic2)
+df["sic_open"] = df["opening"].apply(norm_sic_open)
+df["french"] = df["opening"].apply(norm_french)
+df["caro"] = df["opening"].apply(norm_caro)
+df["d4"] = df["opening"].apply(norm_d4)
+
+def stats(df, col):
+    g = (
+        df[df[col].notna()]
+        .groupby(["decade", col])
         .agg(
             games=("result", "count"),
             white_wins=("result", lambda x: (x == "1-0").sum()),
@@ -17,29 +109,24 @@ def compute_stats(df):
         )
         .reset_index()
     )
+    g["white_winrate"] = g["white_wins"] / g["games"] * 100
+    g["black_winrate"] = g["black_wins"] / g["games"] * 100
+    g["drawrate"] = g["draws"] / g["games"] * 100
+    g["avg_score"] = (g["white_wins"] + 0.5 * g["draws"]) / g["games"] * 100
+    return g
 
-    grouped["white_winrate"] = grouped["white_wins"] / grouped["games"] * 100
-    grouped["black_winrate"] = grouped["black_wins"] / grouped["games"] * 100
-    grouped["drawrate"] = grouped["draws"] / grouped["games"] * 100
-    grouped["avg_score"] = (
-        (grouped["white_wins"] + 0.5 * grouped["draws"]) / grouped["games"]
-    ) * 100
-
-    return grouped
-
-stats_full = compute_stats(df)
-
-categories = {
-    "e4 e5": ["Ruy Lopez", "Italian Game", "Scotch Game", "Open Game Other", "e4 e5 Other"],
-    "Sicilian": ["Najdorf", "Sicilian Classical", "Sicilian Taimanov/Kan", "Sicilian Dragon", "Sicilian d6", "Sicilian Other"],
-    "French": ["French Classical", "French Tarrasch", "French Advance", "French Exchange", "French Other"],
-    "Caro-Kann": ["Caro-Kann Classical", "Caro Advance", "Caro Exchange", "Caro-Kann Other"],
-    "d4 Systems": ["QGD", "QGA", "Slav", "Nimzo-Indian", "Queen's Indian", "King's Indian", "Grunfeld", "Indian Other", "d4 d5 Other"]
+stats_map = {
+    "e4e5": stats(df, "e4e5"),
+    "sic2": stats(df, "sic2"),
+    "sic_open": stats(df, "sic_open"),
+    "french": stats(df, "french"),
+    "caro": stats(df, "caro"),
+    "d4": stats(df, "d4"),
 }
 
 app = Dash(__name__)
 
-def create_card(title, idx):
+def card(title, idx):
     return dmc.Paper(
         children=[
             dmc.Group(
@@ -55,19 +142,29 @@ def create_card(title, idx):
                             {"label": "Avg Score", "value": "avg_score"},
                         ],
                         value="frequency",
-                        style={"width": 180}
+                        style={"width": 180},
                     ),
                 ],
                 justify="space-between",
-                mb=10
             ),
-            dcc.Graph(id=f"graph-{idx}")
+            dcc.Graph(id=f"graph-{idx}"),
         ],
         p="md",
         radius="md",
         shadow="sm",
-        style={"backgroundColor": "white"}
+        style={"backgroundColor": "white"},
     )
+
+titles = [
+    "e4 e5",
+    "Sicilian move 2",
+    "Sicilian Open",
+    "French",
+    "Caro-Kann",
+    "d4 Systems",
+]
+
+cols = ["e4e5", "sic2", "sic_open", "french", "caro", "d4"]
 
 app.layout = dmc.MantineProvider(
     theme={"colorScheme": "light"},
@@ -75,97 +172,67 @@ app.layout = dmc.MantineProvider(
         size="xl",
         children=[
             dmc.Title("Chess Openings Dashboard", order=1, mb=20),
-
             dmc.Grid(
                 children=[
                     dmc.GridCol(
                         span=3,
-                        children=[
-                            dmc.Paper(
-                                children=[
-                                    dmc.Title("Filters", order=4),
-                                    dmc.Space(h=10),
-                                    dmc.Text("Year Range"),
-                                    dmc.RangeSlider(
-                                        id="year-slider",
-                                        min=df["year"].min(),
-                                        max=df["year"].max(),
-                                        value=[df["year"].min(), df["year"].max()],
-                                    ),
-                                ],
-                                p="md",
-                                radius="md",
-                                shadow="sm"
-                            )
-                        ]
+                        children=dmc.Paper(
+                            children=[
+                                dmc.Text("Year Range"),
+                                dmc.RangeSlider(
+                                    id="year",
+                                    min=df["year"].min(),
+                                    max=df["year"].max(),
+                                    value=[df["year"].min(), df["year"].max()],
+                                ),
+                            ],
+                            p="md",
+                        ),
                     ),
-
                     dmc.GridCol(
                         span=9,
                         children=dmc.SimpleGrid(
                             cols=2,
                             spacing="lg",
-                            children=[
-                                create_card(name, i)
-                                for i, name in enumerate(categories.keys())
-                            ]
-                        )
-                    )
+                            children=[card(t, i) for i, t in enumerate(titles)],
+                        ),
+                    ),
                 ]
-            )
-        ]
-    )
+            ),
+        ],
+    ),
 )
 
 @app.callback(
-    [Output(f"graph-{i}", "figure") for i in range(5)],
-    [Input("year-slider", "value")] +
-    [Input(f"metric-{i}", "value") for i in range(5)]
+    [Output(f"graph-{i}", "figure") for i in range(6)],
+    [Input("year", "value")] + [Input(f"metric-{i}", "value") for i in range(6)],
 )
-def update_graphs(year_range, *metrics):
-    stats = stats_full[
-        (stats_full["decade"] >= (year_range[0] // 10) * 10) &
-        (stats_full["decade"] <= (year_range[1] // 10) * 10)
-    ]
+def update(year_range, *metrics):
+    figs = []
+    for col, metric in zip(cols, metrics):
+        s = stats_map[col]
+        s = s[
+            (s["decade"] >= (year_range[0] // 10) * 10)
+            & (s["decade"] <= (year_range[1] // 10) * 10)
+        ].copy()
+        freq = s.groupby("decade")["games"].transform("sum")
+        s["frequency"] = (s["games"] / freq) * 100
 
-    figures = []
+        fig = px.line(s, x="decade", y=metric, color=col, markers=True)
 
-    for (name, openings), metric in zip(categories.items(), metrics):
-        data = stats[stats["opening"].isin(openings)].copy()
-
-        if data.empty:
-            figures.append(px.line())
-            continue
-
-        top_openings = (
-            data.groupby("opening")["games"]
-            .sum()
-            .sort_values(ascending=False)
-            .head(5)
-            .index
-        )
-
-        data = data[data["opening"].isin(top_openings)].copy()
-        freq = data.groupby("decade")["games"].transform("sum")
-        data["frequency"] = (data["games"] / freq) * 100
-
-        fig = px.line(
-            data,
-            x="decade",
-            y=metric,
-            color="opening",
-            markers=True
+        fig.update_traces(
+            hovertemplate="%{fullData.name}: %{y:.2f}%<extra></extra>"
         )
 
         fig.update_layout(
             template="simple_white",
-            height=300,
-            margin=dict(l=10, r=10, t=20, b=10)
+            height=320,
+            hovermode="x unified",
+            hoverlabel=dict(namelength=-1)
         )
 
-        figures.append(fig)
-
-    return figures
+        figs.append(fig)
+    return figs
 
 if __name__ == "__main__":
     app.run(debug=False)
