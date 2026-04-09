@@ -1,7 +1,7 @@
 import pandas as pd
-from dash import Dash, dcc, html, Input, Output
+from dash import Dash, dcc, Input, Output
 import dash_mantine_components as dmc
-import plotly.express as px
+import plotly.graph_objects as go
 
 df = pd.read_csv("../chess_analysis/data/final_dataset.csv")
 df["decade"] = (df["year"] // 10) * 10
@@ -150,57 +150,36 @@ def card(title, idx):
             dcc.Graph(id=f"graph-{idx}"),
         ],
         p="md",
-        radius="md",
-        shadow="sm",
-        style={"backgroundColor": "white"},
     )
 
-titles = [
-    "e4 e5",
-    "Sicilian move 2",
-    "Sicilian Open",
-    "French",
-    "Caro-Kann",
-    "d4 Systems",
-]
-
-cols = ["e4e5", "sic2", "sic_open", "french", "caro", "d4"]
+titles = ["e4 e5","Sicilian move 2","Sicilian Open","French","Caro-Kann","d4 Systems"]
+cols = ["e4e5","sic2","sic_open","french","caro","d4"]
 
 app.layout = dmc.MantineProvider(
-    theme={"colorScheme": "light"},
     children=dmc.Container(
-        size="xl",
         children=[
-            dmc.Title("Chess Openings Dashboard", order=1, mb=20),
             dmc.Grid(
                 children=[
                     dmc.GridCol(
                         span=3,
-                        children=dmc.Paper(
-                            children=[
-                                dmc.Text("Year Range"),
-                                dmc.RangeSlider(
-                                    id="year",
-                                    min=df["year"].min(),
-                                    max=df["year"].max(),
-                                    value=[df["year"].min(), df["year"].max()],
-                                ),
-                            ],
-                            p="md",
+                        children=dmc.RangeSlider(
+                            id="year",
+                            min=df["year"].min(),
+                            max=df["year"].max(),
+                            value=[df["year"].min(), df["year"].max()],
                         ),
                     ),
                     dmc.GridCol(
                         span=9,
                         children=dmc.SimpleGrid(
                             cols=2,
-                            spacing="lg",
                             children=[card(t, i) for i, t in enumerate(titles)],
                         ),
                     ),
                 ]
-            ),
-        ],
-    ),
+            )
+        ]
+    )
 )
 
 @app.callback(
@@ -215,23 +194,53 @@ def update(year_range, *metrics):
             (s["decade"] >= (year_range[0] // 10) * 10)
             & (s["decade"] <= (year_range[1] // 10) * 10)
         ].copy()
+
         freq = s.groupby("decade")["games"].transform("sum")
         s["frequency"] = (s["games"] / freq) * 100
 
-        fig = px.line(s, x="decade", y=metric, color=col, markers=True)
+        fig = go.Figure()
 
-        fig.update_traces(
-            hovertemplate="%{fullData.name}: %{y:.2f}%<extra></extra>"
-        )
+        for name, sub in s.groupby(col):
+            fig.add_trace(go.Scatter(
+                x=sub["decade"],
+                y=sub[metric],
+                mode="lines+markers",
+                name=name,
+                hoverinfo="skip"
+            ))
+
+        hover_x = []
+        hover_y = []
+        hover_text = []
+
+        for dec in sorted(s["decade"].unique()):
+            sub = s[s["decade"] == dec][[col, metric]].dropna()
+            sub = sub.sort_values(by=metric, ascending=False)
+            text = f"Decade {dec}"
+            for _, row in sub.iterrows():
+                text += f"<br>{row[col]}: {row[metric]:.2f}%"
+            hover_x.append(dec)
+            hover_y.append(sub[metric].max())
+            hover_text.append(text)
+
+        fig.add_trace(go.Scatter(
+            x=hover_x,
+            y=hover_y,
+            mode="markers",
+            marker=dict(size=0),
+            hovertemplate="%{text}<extra></extra>",
+            text=hover_text,
+            showlegend=False
+        ))
 
         fig.update_layout(
+            hovermode="x",
             template="simple_white",
-            height=320,
-            hovermode="x unified",
-            hoverlabel=dict(namelength=-1)
+            height=320
         )
 
         figs.append(fig)
+
     return figs
 
 if __name__ == "__main__":
