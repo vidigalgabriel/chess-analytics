@@ -8,6 +8,7 @@ df = pd.read_csv("../data/chess_gamespre1995.csv")
 df = df.dropna(subset=["moves", "result"])
 df["year"] = df["year"].astype(int)
 df["decade"] = (df["year"] // 10) * 10
+df["first_2_moves"] = df["moves"].apply(lambda x: " ".join(str(x).split()[:2]) if len(str(x).split()) >= 2 else str(x))
 
 def cat_g1(m):
     p = str(m).split()
@@ -108,34 +109,53 @@ df["g12"] = df["moves"].apply(cat_g12)
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SLATE])
 
-def make_graph_card(id_str):
+def make_kpi_card(title, id_str, icon_color):
+    return dbc.Card([
+        dbc.CardBody([
+            html.H6(title, className="card-title text-muted text-uppercase"),
+            html.H3(id=id_str, className=f"text-{icon_color} fw-bold")
+        ])
+    ], className="shadow-sm mb-4", style={"backgroundColor": "#2b3035", "border": "none", "borderRadius": "10px"})
+
+def make_graph_card(id_str, height="350px"):
     return dbc.Card(
-        dcc.Graph(id=id_str, style={"height": "350px"}),
+        dcc.Graph(id=id_str, style={"height": height}),
         className="shadow-lg mb-4",
         style={"backgroundColor": "#2b3035", "border": "none", "borderRadius": "15px", "padding": "10px"}
     )
 
 app.layout = dbc.Container([
     dbc.Row([
-        dbc.Col(html.H2("Evolução das Aberturas (Linha do Tempo)", className="text-center text-light mb-4 mt-4"), width=12)
+        dbc.Col([
+            html.H1("Dashboard de Aberturas de Xadrez Históricas", className="text-light mt-4 fw-bold"),
+            html.P("Análise completa da evolução de aberturas de xadrez de 1600 a 1994. Explore tendências, popularidade e eficiência através das décadas.", className="text-muted fs-5 mb-4")
+        ], width=12)
     ]),
+    
+    dbc.Row([
+        dbc.Col(make_kpi_card("Total de Partidas", "kpi-total", "info"), width=3),
+        dbc.Col(make_kpi_card("Vitórias Brancas", "kpi-white", "success"), width=3),
+        dbc.Col(make_kpi_card("Vitórias Pretas", "kpi-black", "danger"), width=3),
+        dbc.Col(make_kpi_card("Empates", "kpi-draw", "warning"), width=3),
+    ]),
+
     dbc.Row([
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
-                    html.H5("Filtros", className="card-title text-info fw-bold"),
+                    html.H5("Controles de Análise", className="card-title text-info fw-bold"),
                     html.Hr(),
-                    html.Label("Intervalo de Anos:", className="mt-2 text-light"),
+                    html.Label("Intervalo de Anos:", className="mt-2 text-light fw-bold"),
                     dcc.RangeSlider(
                         id="year-slider",
                         min=df["year"].min(),
                         max=df["year"].max(),
                         step=1,
                         value=[1950, 2000],
-                        marks={y: {'label': str(y), 'style': {'color': '#adb5bd'}} for y in range(1600, 2025, 40)},
+                        marks={y: {'label': str(y), 'style': {'color': '#adb5bd', 'fontSize': '10px'}} for y in range(1600, 2025, 40)},
                         className="mb-4 mt-2"
                     ),
-                    html.Label("Métrica:", className="mt-4 text-light"),
+                    html.Label("Métrica dos Gráficos de Linha:", className="mt-4 text-light fw-bold"),
                     dbc.RadioItems(
                         id="metric-select",
                         options=[
@@ -152,26 +172,77 @@ app.layout = dbc.Container([
                 ])
             ], className="shadow-lg h-100", style={"backgroundColor": "#2b3035", "border": "none", "borderRadius": "15px", "position": "sticky", "top": "20px"})
         ], width=3),
+        
         dbc.Col([
+            html.H4("Visão Geral do Período", className="text-light mb-3 mt-2 fw-bold"),
+            dbc.Row([
+                dbc.Col(make_graph_card("pie-results", "300px"), width=5),
+                dbc.Col(make_graph_card("bar-decades", "300px"), width=7)
+            ]),
+            
+            html.H4("Evolução Detalhada por Abertura", className="text-light mb-3 mt-4 fw-bold"),
             dbc.Row([dbc.Col(make_graph_card("g1-plot"), width=6), dbc.Col(make_graph_card("g2-plot"), width=6)]),
             dbc.Row([dbc.Col(make_graph_card("g3-plot"), width=6), dbc.Col(make_graph_card("g4-plot"), width=6)]),
             dbc.Row([dbc.Col(make_graph_card("g5-plot"), width=6), dbc.Col(make_graph_card("g6-plot"), width=6)]),
             dbc.Row([dbc.Col(make_graph_card("g7-plot"), width=6), dbc.Col(make_graph_card("g8-plot"), width=6)]),
             dbc.Row([dbc.Col(make_graph_card("g9-plot"), width=6), dbc.Col(make_graph_card("g10-plot"), width=6)]),
             dbc.Row([dbc.Col(make_graph_card("g11-plot"), width=6), dbc.Col(make_graph_card("g12-plot"), width=6)]),
+            
+            html.H4("Top 10 Inícios Mais Populares (2 Lances)", className="text-light mb-3 mt-4 fw-bold"),
+            dbc.Card(
+                dbc.CardBody(html.Div(id="top-table-container")),
+                className="shadow-lg mb-4",
+                style={"backgroundColor": "#2b3035", "border": "none", "borderRadius": "15px"}
+            )
         ], width=9)
     ], className="mb-4")
 ], fluid=True, style={"backgroundColor": "#212529", "minHeight": "100vh", "padding": "20px"})
 
 @app.callback(
+    Output("kpi-total", "children"),
+    Output("kpi-white", "children"),
+    Output("kpi-black", "children"),
+    Output("kpi-draw", "children"),
+    Output("pie-results", "figure"),
+    Output("bar-decades", "figure"),
+    Output("top-table-container", "children"),
     [Output(f"g{i}-plot", "figure") for i in range(1, 13)],
     Input("year-slider", "value"),
     Input("metric-select", "value")
 )
-def update_graphs(year_range, metric):
+def update_dashboard(year_range, metric):
     dff = df[(df["year"] >= year_range[0]) & (df["year"] <= year_range[1])]
 
-    def build_fig(cat_col, title):
+    total = len(dff)
+    w_wins = len(dff[dff["result"] == "1-0"])
+    b_wins = len(dff[dff["result"] == "0-1"])
+    draws = len(dff[dff["result"] == "1/2-1/2"])
+
+    str_total = f"{total:,}".replace(",", ".")
+    str_w_wins = f"{w_wins:,}".replace(",", ".") + f" ({w_wins/total:.1%} )" if total else "0"
+    str_b_wins = f"{b_wins:,}".replace(",", ".") + f" ({b_wins/total:.1%} )" if total else "0"
+    str_draws = f"{draws:,}".replace(",", ".") + f" ({draws/total:.1%} )" if total else "0"
+
+    fig_pie = px.pie(
+        dff, names="result", title="Distribuição de Resultados",
+        color="result", color_discrete_map={"1-0": "#28a745", "0-1": "#dc3545", "1/2-1/2": "#ffc107"}
+    )
+    fig_pie.update_layout(template="plotly_dark", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(t=40, b=10, l=10, r=10))
+
+    decades_count = dff.groupby("decade").size().reset_index(name="count")
+    fig_bar = px.bar(
+        decades_count, x="decade", y="count", title="Volume de Partidas por Década",
+        color_discrete_sequence=["#17a2b8"]
+    )
+    fig_bar.update_layout(template="plotly_dark", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(t=40, b=10, l=10, r=10), xaxis_title="Década", yaxis_title="Partidas")
+
+    top_moves = dff["first_2_moves"].value_counts().head(10).reset_index()
+    top_moves.columns = ["Lances Iniciais", "Quantidade"]
+    top_moves["Porcentagem"] = (top_moves["Quantidade"] / total).apply(lambda x: f"{x:.2%}") if total else "0%"
+    
+    table = dbc.Table.from_dataframe(top_moves, striped=True, bordered=False, hover=True, color="dark", style={"color": "white", "margin": "0"})
+
+    def build_line_fig(cat_col, title):
         d_sub = dff.dropna(subset=[cat_col]).copy()
         if d_sub.empty:
             return px.line(title=title).update_layout(template="plotly_dark", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
@@ -194,49 +265,32 @@ def update_graphs(year_range, metric):
             
             grouped = d_sub.groupby(["decade", cat_col])["val"].mean().reset_index(name="value")
 
-        fig = px.line(
-            grouped, x="decade", y="value", color=cat_col, 
-            title=title, markers=True, 
-            color_discrete_sequence=px.colors.qualitative.Pastel
-        )
-        
-        fig.update_traces(
-            hovertemplate='Valor: %{y:.2%}<extra>%{data.name}</extra>'
-        )
-
+        fig = px.line(grouped, x="decade", y="value", color=cat_col, title=title, markers=True, color_discrete_sequence=px.colors.qualitative.Pastel)
+        fig.update_traces(hovertemplate='Valor: %{y:.2%}<extra>%{data.name}</extra>')
         fig.update_layout(
-            template="plotly_dark", 
-            plot_bgcolor="rgba(0,0,0,0)", 
-            paper_bgcolor="rgba(0,0,0,0)", 
-            margin=dict(l=20, r=20, t=40, b=20), 
-            xaxis_title="Década", 
-            yaxis_title="", 
-            yaxis_tickformat='.2%', 
-            hovermode="x unified",
-            hoverlabel=dict(
-                bgcolor="#343a40",
-                font_size=13,
-                font_color="white",
-                bordercolor="#495057"
-            ),
-            legend_title=""
+            template="plotly_dark", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
+            margin=dict(l=20, r=20, t=40, b=20), xaxis_title="Década", yaxis_title="", 
+            yaxis_tickformat='.2%', hovermode="x unified",
+            hoverlabel=dict(bgcolor="#343a40", font_size=13, font_color="white", bordercolor="#495057"), legend_title=""
         )
         return fig
 
-    return (
-        build_fig("g1", "1. Evolução Lance 1 Brancas"),
-        build_fig("g2", "2. Resposta das Pretas a 1.e4"),
-        build_fig("g3", "3. Resposta das Pretas a 1.d4"),
-        build_fig("g4", "4. Após e4 e5 Nf3 Nc6"),
-        build_fig("g5", "5. Após e4 c5 Nf3"),
-        build_fig("g6", "6. Após Siciliana Aberta"),
-        build_fig("g7", "7. Após e4 e6 d4 d5 (Francesa)"),
-        build_fig("g8", "8. Após e4 c6 d4 d5 (Caro-Kann)"),
-        build_fig("g9", "9. Após d4 d5 c4"),
-        build_fig("g10", "10. Após d4 Nf6 c4"),
-        build_fig("g11", "11. Após c4 (Inglesa)"),
-        build_fig("g12", "12. Após Nf3 (Reti)"),
-    )
+    figs = [
+        build_line_fig("g1", "1. Evolução Lance 1 Brancas"),
+        build_line_fig("g2", "2. Resposta das Pretas a 1.e4"),
+        build_line_fig("g3", "3. Resposta das Pretas a 1.d4"),
+        build_line_fig("g4", "4. Após e4 e5 Nf3 Nc6"),
+        build_line_fig("g5", "5. Após e4 c5 Nf3"),
+        build_line_fig("g6", "6. Após Siciliana Aberta"),
+        build_line_fig("g7", "7. Após e4 e6 d4 d5 (Francesa)"),
+        build_line_fig("g8", "8. Após e4 c6 d4 d5 (Caro-Kann)"),
+        build_line_fig("g9", "9. Após d4 d5 c4"),
+        build_line_fig("g10", "10. Após d4 Nf6 c4"),
+        build_line_fig("g11", "11. Após c4 (Inglesa)"),
+        build_line_fig("g12", "12. Após Nf3 (Reti)")
+    ]
+
+    return str_total, str_w_wins, str_b_wins, str_draws, fig_pie, fig_bar, table, *figs
 
 if __name__ == "__main__":
     app.run(debug=True)
