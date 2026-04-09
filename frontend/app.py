@@ -2,6 +2,7 @@ import pandas as pd
 from dash import Dash, dcc, Input, Output
 import dash_mantine_components as dmc
 import plotly.graph_objects as go
+import plotly.express as px
 
 df = pd.read_csv("../chess_analysis/data/final_dataset.csv")
 df["decade"] = (df["year"] // 10) * 10
@@ -124,76 +125,109 @@ stats_map = {
     "d4": stats(df, "d4"),
 }
 
-app = Dash(__name__)
+games_decade = df.groupby("decade").size().reset_index(name="games")
+results_dist = df["result"].value_counts().reset_index()
+results_dist.columns = ["result", "count"]
+top_openings = df["opening"].value_counts().head(10).reset_index()
+top_openings.columns = ["opening", "count"]
 
-def card(title, idx):
-    return dmc.Paper(
-        children=[
-            dmc.Group(
-                [
-                    dmc.Title(title, order=3),
-                    dmc.Select(
-                        id=f"metric-{idx}",
-                        data=[
-                            {"label": "Frequency", "value": "frequency"},
-                            {"label": "White Winrate", "value": "white_winrate"},
-                            {"label": "Black Winrate", "value": "black_winrate"},
-                            {"label": "Draw Rate", "value": "drawrate"},
-                            {"label": "Avg Score", "value": "avg_score"},
-                        ],
-                        value="frequency",
-                        style={"width": 180},
-                    ),
-                ],
-                justify="space-between",
-            ),
-            dcc.Graph(id=f"graph-{idx}"),
-        ],
-        p="md",
-    )
+app = Dash(__name__)
 
 titles = ["e4 e5","Sicilian move 2","Sicilian Open","French","Caro-Kann","d4 Systems"]
 cols = ["e4e5","sic2","sic_open","french","caro","d4"]
 
+decades = sorted(df["decade"].unique())
+
 app.layout = dmc.MantineProvider(
+    theme={"colorScheme": "dark", "primaryColor": "cyan"},
     children=dmc.Container(
+        size="lg",
         children=[
-            dmc.Grid(
+            dmc.Stack(
+                gap="lg",
                 children=[
-                    dmc.GridCol(
-                        span=3,
-                        children=dmc.RangeSlider(
-                            id="year",
-                            min=df["year"].min(),
-                            max=df["year"].max(),
-                            value=[df["year"].min(), df["year"].max()],
-                        ),
+                    dmc.Paper(
+                        p="xl",
+                        radius="xl",
+                        shadow="xl",
+                        children=[
+                            dmc.Title("Chess Openings Intelligence", order=1),
+                            dmc.Text("Large scale analysis of chess openings across decades. Explore how strategies evolved, which openings dominate, and performance trends for each variation."),
+                        ],
                     ),
-                    dmc.GridCol(
-                        span=9,
-                        children=dmc.SimpleGrid(
-                            cols=2,
-                            children=[card(t, i) for i, t in enumerate(titles)],
-                        ),
+                    dmc.Paper(
+                        p="xl",
+                        radius="xl",
+                        shadow="md",
+                        children=[
+                            dmc.Text("Select Decade Range"),
+                            dmc.RangeSlider(
+                                id="decade",
+                                min=0,
+                                max=len(decades)-1,
+                                value=[0, len(decades)-1],
+                                marks=[{"value": i, "label": str(decades[i])} for i in range(len(decades))],
+                                size="xl",
+                            ),
+                            dmc.Space(h=20),
+                            dmc.Select(
+                                id="metric",
+                                data=[
+                                    {"label": "Frequency", "value": "frequency"},
+                                    {"label": "White Winrate", "value": "white_winrate"},
+                                    {"label": "Black Winrate", "value": "black_winrate"},
+                                    {"label": "Draw Rate", "value": "drawrate"},
+                                    {"label": "Average Score", "value": "avg_score"},
+                                ],
+                                value="frequency",
+                                size="lg",
+                            ),
+                        ],
+                    ),
+                    dmc.Stack(
+                        children=[dcc.Graph(id=f"graph-{i}") for i in range(6)]
+                    ),
+                    dmc.Grid(
+                        children=[
+                            dmc.GridCol(
+                                span=12,
+                                children=dcc.Graph(
+                                    figure=px.bar(games_decade, x="decade", y="games", title="Games per Decade")
+                                ),
+                            ),
+                            dmc.GridCol(
+                                span=6,
+                                children=dcc.Graph(
+                                    figure=px.pie(results_dist, names="result", values="count", title="Results Distribution")
+                                ),
+                            ),
+                            dmc.GridCol(
+                                span=6,
+                                children=dcc.Graph(
+                                    figure=px.bar(top_openings, x="opening", y="count", title="Top Openings")
+                                ),
+                            ),
+                        ]
                     ),
                 ]
             )
-        ]
-    )
+        ],
+    ),
 )
 
 @app.callback(
     [Output(f"graph-{i}", "figure") for i in range(6)],
-    [Input("year", "value")] + [Input(f"metric-{i}", "value") for i in range(6)],
+    Input("decade", "value"),
+    Input("metric", "value"),
 )
-def update(year_range, *metrics):
+def update(dec_range, metric):
     figs = []
-    for col, metric in zip(cols, metrics):
+    start_dec = decades[dec_range[0]]
+    end_dec = decades[dec_range[1]]
+
+    for col, title in zip(cols, titles):
         s = stats_map[col]
-        s = s[
-            (s["decade"] >= (year_range[0] // 10) * 10)
-            & (s["decade"] <= (year_range[1] // 10) * 10)
-        ].copy()
+        s = s[(s["decade"] >= start_dec) & (s["decade"] <= end_dec)].copy()
 
         freq = s.groupby("decade")["games"].transform("sum")
         s["frequency"] = (s["games"] / freq) * 100
@@ -234,9 +268,9 @@ def update(year_range, *metrics):
         ))
 
         fig.update_layout(
-            hovermode="x",
-            template="simple_white",
-            height=320
+            title=title,
+            template="plotly_dark",
+            height=400
         )
 
         figs.append(fig)
