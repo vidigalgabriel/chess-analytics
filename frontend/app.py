@@ -142,7 +142,9 @@ app.layout = dbc.Container([
                             {"label": "Frequência (%)", "value": "freq"},
                             {"label": "Vitória Brancas (%)", "value": "white_win"},
                             {"label": "Vitória Pretas (%)", "value": "black_win"},
-                            {"label": "Empates (%)", "value": "draw"}
+                            {"label": "Empates (%)", "value": "draw"},
+                            {"label": "Score Brancas (%)", "value": "score_white"},
+                            {"label": "Score Pretas (%)", "value": "score_black"}
                         ],
                         value="freq",
                         className="mb-3 text-light"
@@ -179,19 +181,45 @@ def update_graphs(year_range, metric):
             totals = grouped.groupby("decade")["count"].transform("sum")
             grouped["value"] = grouped["count"] / totals
         else:
-            tr = "1-0" if metric == "white_win" else "0-1" if metric == "black_win" else "1/2-1/2"
-            d_sub["is_target"] = (d_sub["result"] == tr).astype(int)
-            grouped = d_sub.groupby(["decade", cat_col])["is_target"].mean().reset_index(name="value")
+            if metric == "white_win":
+                d_sub["val"] = (d_sub["result"] == "1-0").astype(float)
+            elif metric == "black_win":
+                d_sub["val"] = (d_sub["result"] == "0-1").astype(float)
+            elif metric == "draw":
+                d_sub["val"] = (d_sub["result"] == "1/2-1/2").astype(float)
+            elif metric == "score_white":
+                d_sub["val"] = d_sub["result"].map({"1-0": 1.0, "1/2-1/2": 0.5, "0-1": 0.0}).fillna(0)
+            elif metric == "score_black":
+                d_sub["val"] = d_sub["result"].map({"0-1": 1.0, "1/2-1/2": 0.5, "1-0": 0.0}).fillna(0)
+            
+            grouped = d_sub.groupby(["decade", cat_col])["val"].mean().reset_index(name="value")
 
         fig = px.line(
             grouped, x="decade", y="value", color=cat_col, 
             title=title, markers=True, 
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
+        
+        fig.update_traces(
+            hovertemplate='Valor: %{y:.2%}<extra>%{data.name}</extra>'
+        )
+
         fig.update_layout(
-            template="plotly_dark", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
-            margin=dict(l=20, r=20, t=40, b=20), xaxis_title="Década", yaxis_title="", 
-            yaxis_tickformat='.0%', hovermode="x unified", legend_title=""
+            template="plotly_dark", 
+            plot_bgcolor="rgba(0,0,0,0)", 
+            paper_bgcolor="rgba(0,0,0,0)", 
+            margin=dict(l=20, r=20, t=40, b=20), 
+            xaxis_title="Década", 
+            yaxis_title="", 
+            yaxis_tickformat='.2%', 
+            hovermode="x unified",
+            hoverlabel=dict(
+                bgcolor="#343a40",
+                font_size=13,
+                font_color="white",
+                bordercolor="#495057"
+            ),
+            legend_title=""
         )
         return fig
 
