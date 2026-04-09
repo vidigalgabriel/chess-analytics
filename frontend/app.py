@@ -2,11 +2,30 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="Chess Openings Dashboard")
 
-df = pd.read_csv("../chess_analysis/data/test_sample.csv")
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #0e1117;
+    }
+    .block-container {
+        padding-top: 2rem;
+    }
+    h1, h2, h3 {
+        color: #ffffff;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-df["decade"] = (df["year"] // 10) * 10
+@st.cache_data
+def load_data():
+    df = pd.read_csv("../chess_analysis/data/test_sample.csv")
+    df["decade"] = (df["year"] // 10) * 10
+    return df
 
 def compute_stats(df):
     grouped = (
@@ -31,71 +50,129 @@ def compute_stats(df):
 
     return grouped
 
-stats = compute_stats(df)
-
-metric = st.selectbox(
-    "",
-    ["frequency", "white_winrate", "black_winrate", "drawrate", "avg_score"]
-)
-
-min_year = int(df["year"].min())
-max_year = int(df["year"].max())
-
-if min_year == max_year:
-    years = (min_year, max_year)
-else:
-    years = st.slider(
-        "",
-        min_year,
-        max_year,
-        (min_year, max_year)
-    )
-
-filtered_df = df[(df["year"] >= years[0]) & (df["year"] <= years[1])]
-filtered_stats = compute_stats(filtered_df)
-
-def plot_category(title, openings):
-    data = filtered_stats[filtered_stats["opening"].isin(openings)]
-    if data.empty:
-        return
-    fig = px.line(
-        data,
-        x="decade",
-        y=metric,
-        color="opening",
-        markers=True,
-        title=title
-    )
-    st.plotly_chart(fig, use_container_width=True)
+df = load_data()
 
 st.title("Chess Openings Analysis")
 
-plot_category(
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    metric = st.selectbox(
+        "Metric",
+        ["frequency", "white_winrate", "black_winrate", "drawrate", "avg_score"]
+    )
+
+with col2:
+    chart_type = st.selectbox(
+        "Chart Type",
+        ["line", "bar", "area"]
+    )
+
+with col3:
+    min_year = int(df["year"].min())
+    max_year = int(df["year"].max())
+
+    if min_year == max_year:
+        years = (min_year, max_year)
+    else:
+        years = st.slider(
+            "Year Range",
+            min_year,
+            max_year,
+            (min_year, max_year)
+        )
+
+filtered_df = df[(df["year"] >= years[0]) & (df["year"] <= years[1])]
+stats = compute_stats(filtered_df)
+
+def plot_category(title, openings):
+    data = stats[stats["opening"].isin(openings)]
+    if data.empty:
+        return
+
+    top_openings = (
+        data.groupby("opening")["games"]
+        .sum()
+        .sort_values(ascending=False)
+        .head(6)
+        .index
+    )
+
+    data = data[data["opening"].isin(top_openings)]
+
+    if chart_type == "line":
+        fig = px.line(
+            data,
+            x="decade",
+            y=metric,
+            color="opening",
+            markers=True
+        )
+    elif chart_type == "bar":
+        fig = px.bar(
+            data,
+            x="decade",
+            y=metric,
+            color="opening",
+            barmode="group"
+        )
+    else:
+        fig = px.area(
+            data,
+            x="decade",
+            y=metric,
+            color="opening"
+        )
+
+    fig.update_layout(
+        template="plotly_dark",
+        title=title,
+        legend_title="Opening"
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+tabs = st.tabs([
     "e4 e5",
-    ["Ruy Lopez", "Italian Game", "Scotch Game", "Open Game Other", "e4 e5 Other"]
-)
-
-plot_category(
     "Sicilian",
-    ["Najdorf", "Sicilian Classical", "Sicilian Taimanov/Kan", "Sicilian Dragon", "Sicilian d6", "Sicilian Other"]
-)
-
-plot_category(
     "French",
-    ["French Classical", "French Tarrasch", "French Advance", "French Exchange", "French Other"]
-)
-
-plot_category(
     "Caro-Kann",
-    ["Caro-Kann Classical", "Caro Advance", "Caro Exchange", "Caro-Kann Other"]
-)
+    "d4 Systems",
+    "Data Table"
+])
 
-plot_category(
-    "d4 systems",
-    ["QGD", "QGA", "Slav", "Nimzo-Indian", "Queen's Indian", "King's Indian", "Grunfeld", "Indian Other", "d4 d5 Other"]
-)
+with tabs[0]:
+    plot_category(
+        "e4 e5",
+        ["Ruy Lopez", "Italian Game", "Scotch Game", "Open Game Other", "e4 e5 Other"]
+    )
 
-st.dataframe(
-    filtered_stats.sort_values("games", ascending=False),
-    use_container_width=True
-)
+with tabs[1]:
+    plot_category(
+        "Sicilian",
+        ["Najdorf", "Sicilian Classical", "Sicilian Taimanov/Kan", "Sicilian Dragon", "Sicilian d6", "Sicilian Other"]
+    )
+
+with tabs[2]:
+    plot_category(
+        "French",
+        ["French Classical", "French Tarrasch", "French Advance", "French Exchange", "French Other"]
+    )
+
+with tabs[3]:
+    plot_category(
+        "Caro-Kann",
+        ["Caro-Kann Classical", "Caro Advance", "Caro Exchange", "Caro-Kann Other"]
+    )
+
+with tabs[4]:
+    plot_category(
+        "d4 Systems",
+        ["QGD", "QGA", "Slav", "Nimzo-Indian", "Queen's Indian", "King's Indian", "Grunfeld", "Indian Other", "d4 d5 Other"]
+    )
+
+with tabs[5]:
+    st.dataframe(
+        stats.sort_values("games", ascending=False),
+        use_container_width=True
+    )
