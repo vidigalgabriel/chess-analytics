@@ -1,4 +1,4 @@
-# stream_parser.py
+# chess_analysis/stream_parser.py
 import chess.pgn
 import pandas as pd
 import os
@@ -24,9 +24,11 @@ def classify_opening(m):
                 if m[3] == "Nc6":
                     return "Sicilian Classical"
                 if m[3] == "e6":
-                    return "Sicilian Taimanov/Kan"
+                    if "Nc3" in m and "d4" in m:
+                        return "Taimanov/Kan"
+                    return "Sicilian e6"
                 if m[3] == "g6":
-                    return "Sicilian Dragon"
+                    return "Sicilian g6"
                 return "Sicilian Other"
             return "Sicilian Other"
         if m[0] == "e4" and m[1] == "e6":
@@ -70,6 +72,20 @@ def classify_opening(m):
                         return "Nimzo-Indian"
                     return "Queen's Indian"
             return "Indian Other"
+        if m[0] == "c4":
+            if m[1] == "e5":
+                return "English King"
+            if m[1] == "c5":
+                return "English Symmetrical"
+            if m[1] == "Nf6":
+                return "English Anglo-Indian"
+            return "English Other"
+        if m[0] == "Nf3":
+            if m[1] == "d5":
+                return "Reti d5"
+            if m[1] == "Nf6":
+                return "Reti Nf3"
+            return "Reti Other"
     except:
         return "Unknown"
     return "Other"
@@ -88,17 +104,22 @@ def extract_game_data(game):
     while node.variations:
         node = node.variations[0]
         moves.append(node.move)
-    if len(moves) < 12:
+    if len(moves) < 10:
         return None
     board = game.board()
     san_moves = []
-    for move in moves[:12]:
+    for move in moves[:10]:
         san_moves.append(board.san(move))
         board.push(move)
     opening = classify_opening(san_moves)
-    return {"year": year, "result": result, "opening": opening}
+    return {
+        "year": year,
+        "result": result,
+        "moves": " ".join(san_moves),
+        "opening": opening
+    }
 
-def process_pgn_stream(pgn_path, output_csv, block_size=5000):
+def process_pgn_stream(pgn_path, output_csv, block_size=5000, min_year=None, max_year=None, max_games=None):
     data = []
     count = 0
     block_number = 1
@@ -109,8 +130,14 @@ def process_pgn_stream(pgn_path, output_csv, block_size=5000):
                 break
             extracted = extract_game_data(game)
             if extracted:
+                if min_year and extracted["year"] < min_year:
+                    continue
+                if max_year and extracted["year"] > max_year:
+                    continue
                 data.append(extracted)
                 count += 1
+                if max_games and count >= max_games:
+                    break
             if len(data) >= block_size:
                 df = pd.DataFrame(data)
                 mode = "a" if os.path.exists(output_csv) else "w"

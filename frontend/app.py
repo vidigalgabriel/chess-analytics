@@ -1,211 +1,214 @@
+import dash
+from dash import dcc, html, Input, Output
+import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import Dash, dcc, Input, Output
-import dash_mantine_components as dmc
-import plotly.graph_objects as go
 import plotly.express as px
 
-df = pd.read_csv("../chess_analysis/data/final_dataset.csv")
+df = pd.read_csv("../data/chess_gamespre1995.csv")
+df = df.dropna(subset=["moves", "result"])
+df["year"] = df["year"].astype(int)
 df["decade"] = (df["year"] // 10) * 10
 
-def first_move(op):
-    op=str(op)
-    if "e4" in op: return "e4"
-    if "d4" in op: return "d4"
-    if "c4" in op or "English" in op: return "c4"
-    if "Nf3" in op: return "Nf3"
-    return "Other"
+def cat_g1(m):
+    p = str(m).split()
+    if not p: return "Outros"
+    return p[0] if p[0] in ["e4", "d4", "c4", "Nf3"] else "Outros"
 
-def vs_e4(op):
-    op=str(op)
-    if "e5" in op: return "e5"
-    if "c5" in op or "Sicilian" in op: return "c5"
-    if "c6" in op or "Caro" in op: return "c6"
-    if "e6" in op or "French" in op: return "e6"
-    return "Other"
+def cat_g2(m):
+    if not m.startswith("e4 "): return None
+    p = m.split()
+    return p[1] if len(p) > 1 and p[1] in ["e5", "c5", "c6", "e6"] else "Outros"
 
-def vs_d4(op):
-    op=str(op)
-    if "d5" in op: return "d5"
-    if "Nf6" in op or "Indian" in op: return "Nf6"
-    return "Other"
+def cat_g3(m):
+    if not m.startswith("d4 "): return None
+    p = m.split()
+    return p[1] if len(p) > 1 and p[1] in ["d5", "Nf6"] else "Outros"
 
-def e4e5(op):
-    op=str(op)
-    if "Ruy Lopez" in op: return "Ruy Lopez"
-    if "Italian" in op: return "Italian"
-    if "Scotch" in op: return "Scotch"
-    if "e4 e5" in op: return "Other"
+def cat_g4(m):
+    if not m.startswith("e4 e5"): return None
+    if m.startswith("e4 e5 Nf3 Nc6 Bb5"): return "Ruy Lopez"
+    if m.startswith("e4 e5 Nf3 Nc6 Bc4"): return "Italiana"
+    if m.startswith("e4 e5 Nf3 Nc6 d4"): return "Escocesa"
+    return "e4 e5 Other"
+
+def cat_g5(m):
+    if not m.startswith("e4 c5"): return None
+    if m.startswith("e4 c5 Nf3 d6"): return "Siciliana d6"
+    if m.startswith("e4 c5 Nf3 e6"): return "Siciliana e6"
+    if m.startswith("e4 c5 Nf3 Nc6"): return "Siciliana Nc6"
+    if m.startswith("e4 c5 Nf3 g6"): return "Siciliana g6"
+    return "Siciliana Other"
+
+def cat_g6(m):
+    if m.startswith("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6"): return "Najdorf"
+    if m.startswith("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 Nc6"): return "Classica"
+    if m.startswith("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 e6"): return "Scheveninguen"
+    if m.startswith("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6"): return "Dragao"
+    if m.startswith("e4 c5 Nf3 e6 d4 cxd4 Nxd4 a6"): return "Kan"
+    if m.startswith("e4 c5 Nf3 e6 d4 cxd4 Nxd4 Nc6"): return "Taimanov"
+    if m.startswith("e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 Nf6 Nc3 e5"): return "Sveshnikov"
+    if m.startswith("e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 g6"): return "Dragao acelerada"
     return None
 
-def sic2(op):
-    op=str(op)
-    if "Sicilian" not in op: return None
-    if "d6" in op: return "d6"
-    if "e6" in op: return "e6"
-    if "Nc6" in op: return "Nc6"
-    if "g6" in op: return "g6"
-    return "Other"
+def cat_g7(m):
+    if not m.startswith("e4 e6 d4 d5"): return None
+    if m.startswith("e4 e6 d4 d5 Nc3 Nf6"): return "Francesa Clássica"
+    if m.startswith("e4 e6 d4 d5 Nd2"): return "Francesa Tarrasch"
+    if m.startswith("e4 e6 d4 d5 exd5"): return "Francesa das Trocas"
+    if m.startswith("e4 e6 d4 d5 e5"): return "Francesa do avanço"
+    return "Francesas Other"
 
-def sic_open(op):
-    op=str(op)
-    if "Sicilian" not in op: return None
-    if "Najdorf" in op: return "Najdorf"
-    if "Classical" in op: return "Classical"
-    if "Scheveningen" in op: return "Scheveningen"
-    if "Dragon" in op and "Accelerated" not in op: return "Dragon"
-    if "Sveshnikov" in op: return "Sveshnikov"
-    if "Taimanov" in op or "Kan" in op: return "Taimanov/Kan"
-    if "Accelerated Dragon" in op: return "Accelerated Dragon"
-    return "Other"
+def cat_g8(m):
+    if not m.startswith("e4 c6 d4 d5"): return None
+    if m.startswith("e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5"): return "Caro-Kann Clássica"
+    if m.startswith("e4 c6 d4 d5 exd5 cxd5"): return "Caro-Kann das Trocas"
+    if m.startswith("e4 c6 d4 d5 e5"): return "Caro-Kann do Avanço"
+    return "Caro Kann Other"
 
-def french(op):
-    op=str(op)
-    if "French" not in op: return None
-    if "Classical" in op: return "Classical"
-    if "Tarrasch" in op: return "Tarrasch"
-    if "Advance" in op: return "Advance"
-    if "Exchange" in op: return "Exchange"
-    return "Other"
+def cat_g9(m):
+    if not m.startswith("d4 d5 c4"): return None
+    if m.startswith("d4 d5 c4 e6"): return "QGD"
+    if m.startswith("d4 d5 c4 dxc4"): return "QGA"
+    if m.startswith("d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4"): return "Eslava"
+    if m.startswith("d4 d5 c4 c6 e3 Nf6 Nc3 e6"): return "Semi-Eslava"
+    return None
 
-def caro(op):
-    op=str(op)
-    if "Caro" not in op: return None
-    if "Classical" in op: return "Classical"
-    if "Advance" in op: return "Advance"
-    if "Exchange" in op: return "Exchange"
-    return "Other"
+def cat_g10(m):
+    if not m.startswith("d4"): return None
+    if m.startswith("d4 Nf6 c4 e6 Nc3 Bb4"): return "Nimzo-Índia"
+    if m.startswith("d4 Nf6 c4 g6 Nc3 d5"): return "Grunfeld"
+    if m.startswith("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6"): return "KID"
+    return "d4 Other"
 
-def d4sys(op):
-    op=str(op)
-    if "Nimzo" in op: return "Nimzo"
-    if "QGD" in op or "Queen" in op: return "QGD"
-    if "QGA" in op: return "QGA"
-    if "King's Indian" in op: return "KID"
-    if "Grunfeld" in op: return "Grunfeld"
-    if "Slav" in op: return "Slav"
-    return "Other"
+def cat_g11(m):
+    if not m.startswith("c4"): return None
+    if m.startswith("c4 e5"): return "Inglesa Rei"
+    if m.startswith("c4 c5"): return "Simétrica"
+    if m.startswith("c4 Nf6"): return "Anglo-Índia"
+    return "Other c4"
 
-df["first"]=df["opening"].apply(first_move)
-df["e4"]=df["opening"].apply(vs_e4)
-df["d4r"]=df["opening"].apply(vs_d4)
-df["e4e5"]=df["opening"].apply(e4e5)
-df["sic2"]=df["opening"].apply(sic2)
-df["sicopen"]=df["opening"].apply(sic_open)
-df["french"]=df["opening"].apply(french)
-df["caro"]=df["opening"].apply(caro)
-df["d4sys"]=df["opening"].apply(d4sys)
+def cat_g12(m):
+    if not m.startswith("Nf3"): return None
+    if m.startswith("Nf3 d5"): return "Reti d5"
+    if m.startswith("Nf3 Nf6"): return "Reti Nf6"
+    return "Other Nf3"
 
-def stats(df,col):
-    g=df.groupby(["decade",col]).agg(
-        games=("result","count"),
-        w=("result",lambda x:(x=="1-0").sum()),
-        b=("result",lambda x:(x=="0-1").sum()),
-        d=("result",lambda x:(x=="1/2-1/2").sum())
-    ).reset_index()
-    g["freq"]=g["games"]/g.groupby("decade")["games"].transform("sum")*100
-    g["wr"]=g["w"]/g["games"]*100
-    g["br"]=g["b"]/g["games"]*100
-    g["dr"]=g["d"]/g["games"]*100
-    g["score"]=(g["w"]+0.5*g["d"])/g["games"]*100
-    return g
+df["g1"] = df["moves"].apply(cat_g1)
+df["g2"] = df["moves"].apply(cat_g2)
+df["g3"] = df["moves"].apply(cat_g3)
+df["g4"] = df["moves"].apply(cat_g4)
+df["g5"] = df["moves"].apply(cat_g5)
+df["g6"] = df["moves"].apply(cat_g6)
+df["g7"] = df["moves"].apply(cat_g7)
+df["g8"] = df["moves"].apply(cat_g8)
+df["g9"] = df["moves"].apply(cat_g9)
+df["g10"] = df["moves"].apply(cat_g10)
+df["g11"] = df["moves"].apply(cat_g11)
+df["g12"] = df["moves"].apply(cat_g12)
 
-maps={
-"first":stats(df,"first"),
-"e4":stats(df,"e4"),
-"d4r":stats(df,"d4r"),
-"e4e5":stats(df,"e4e5"),
-"sic2":stats(df,"sic2"),
-"sicopen":stats(df,"sicopen"),
-"french":stats(df,"french"),
-"caro":stats(df,"caro"),
-"d4sys":stats(df,"d4sys"),
-}
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SLATE])
 
-titles=[
-"First Move",
-"vs e4",
-"vs d4",
-"e4 e5",
-"Sicilian move 2",
-"Sicilian Open",
-"French",
-"Caro-Kann",
-"d4 systems"
-]
+def make_graph_card(id_str):
+    return dbc.Card(
+        dcc.Graph(id=id_str, style={"height": "350px"}),
+        className="shadow-lg mb-4",
+        style={"backgroundColor": "#2b3035", "border": "none", "borderRadius": "15px", "padding": "10px"}
+    )
 
-cols=list(maps.keys())
-decades=sorted(df["decade"].unique())
-
-games_year=df.groupby("year").size().reset_index(name="games")
-
-app=Dash(__name__)
-
-def fig(s,col,metric,title):
-    f=go.Figure()
-    for n,sub in s.groupby(col):
-        f.add_trace(go.Scatter(x=sub["decade"],y=sub[metric],mode="lines",name=n))
-    f.update_layout(template="plotly_dark",height=300,title=title)
-    return f
-
-app.layout=dmc.MantineProvider(
-theme={"colorScheme":"dark","primaryColor":"violet"},
-children=dmc.AppShell(
-navbar={"width":320},
-children=[
-dmc.AppShellNavbar(
-p="lg",
-style={"background":"#0f172a","borderRight":"1px solid #1e293b"},
-children=[
-dmc.Title("Chess Dashboard",order=2),
-dmc.Space(h=30),
-dmc.Text("Decades",size="sm"),
-dmc.RangeSlider(id="dec",min=0,max=len(decades)-1,value=[0,len(decades)-1]),
-dmc.Space(h=25),
-dmc.Text("Metric",size="sm"),
-dmc.SegmentedControl(
-id="metric",
-value="freq",
-data=[
-{"label":"Freq","value":"freq"},
-{"label":"Score","value":"score"},
-{"label":"Draw","value":"dr"},
-{"label":"White","value":"wr"},
-{"label":"Black","value":"br"},
-])
-]),
-dmc.AppShellMain(
-dmc.Container(
-fluid=True,
-children=[
-dmc.Grid([
-dmc.GridCol(dmc.Paper(dcc.Graph(figure=px.line(games_year,x="year",y="games",template="plotly_dark")),p="md"),span=12),
-]),
-dmc.Space(h=20),
-dmc.Grid([
-dmc.GridCol(dmc.Paper(dcc.Graph(id=f"g{i}"),p="md"),span=4)
-for i in range(len(cols))
-])
-]
-)
-)
-]
-)
-)
+app.layout = dbc.Container([
+    dbc.Row([
+        dbc.Col(html.H2("Evolução das Aberturas (Linha do Tempo)", className="text-center text-light mb-4 mt-4"), width=12)
+    ]),
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardBody([
+                    html.H5("Filtros", className="card-title text-info fw-bold"),
+                    html.Hr(),
+                    html.Label("Intervalo de Anos:", className="mt-2 text-light"),
+                    dcc.RangeSlider(
+                        id="year-slider",
+                        min=df["year"].min(),
+                        max=df["year"].max(),
+                        step=1,
+                        value=[1950, 2000],
+                        marks={y: {'label': str(y), 'style': {'color': '#adb5bd'}} for y in range(1600, 2025, 40)},
+                        className="mb-4 mt-2"
+                    ),
+                    html.Label("Métrica:", className="mt-4 text-light"),
+                    dbc.RadioItems(
+                        id="metric-select",
+                        options=[
+                            {"label": "Frequência (%)", "value": "freq"},
+                            {"label": "Vitória Brancas (%)", "value": "white_win"},
+                            {"label": "Vitória Pretas (%)", "value": "black_win"},
+                            {"label": "Empates (%)", "value": "draw"}
+                        ],
+                        value="freq",
+                        className="mb-3 text-light"
+                    )
+                ])
+            ], className="shadow-lg h-100", style={"backgroundColor": "#2b3035", "border": "none", "borderRadius": "15px", "position": "sticky", "top": "20px"})
+        ], width=3),
+        dbc.Col([
+            dbc.Row([dbc.Col(make_graph_card("g1-plot"), width=6), dbc.Col(make_graph_card("g2-plot"), width=6)]),
+            dbc.Row([dbc.Col(make_graph_card("g3-plot"), width=6), dbc.Col(make_graph_card("g4-plot"), width=6)]),
+            dbc.Row([dbc.Col(make_graph_card("g5-plot"), width=6), dbc.Col(make_graph_card("g6-plot"), width=6)]),
+            dbc.Row([dbc.Col(make_graph_card("g7-plot"), width=6), dbc.Col(make_graph_card("g8-plot"), width=6)]),
+            dbc.Row([dbc.Col(make_graph_card("g9-plot"), width=6), dbc.Col(make_graph_card("g10-plot"), width=6)]),
+            dbc.Row([dbc.Col(make_graph_card("g11-plot"), width=6), dbc.Col(make_graph_card("g12-plot"), width=6)]),
+        ], width=9)
+    ], className="mb-4")
+], fluid=True, style={"backgroundColor": "#212529", "minHeight": "100vh", "padding": "20px"})
 
 @app.callback(
-[Output(f"g{i}","figure") for i in range(len(cols))],
-Input("dec","value"),
-Input("metric","value")
+    [Output(f"g{i}-plot", "figure") for i in range(1, 13)],
+    Input("year-slider", "value"),
+    Input("metric-select", "value")
 )
-def update(r,m):
-    start=decades[r[0]]
-    end=decades[r[1]]
-    figs=[]
-    for c,t in zip(cols,titles):
-        s=maps[c]
-        s=s[(s["decade"]>=start)&(s["decade"]<=end)]
-        figs.append(fig(s,c,m,t))
-    return figs
+def update_graphs(year_range, metric):
+    dff = df[(df["year"] >= year_range[0]) & (df["year"] <= year_range[1])]
 
-if __name__=="__main__":
-    app.run(debug=False)
+    def build_fig(cat_col, title):
+        d_sub = dff.dropna(subset=[cat_col]).copy()
+        if d_sub.empty:
+            return px.line(title=title).update_layout(template="plotly_dark", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+
+        if metric == "freq":
+            grouped = d_sub.groupby(["decade", cat_col]).size().reset_index(name="count")
+            totals = grouped.groupby("decade")["count"].transform("sum")
+            grouped["value"] = grouped["count"] / totals
+        else:
+            tr = "1-0" if metric == "white_win" else "0-1" if metric == "black_win" else "1/2-1/2"
+            d_sub["is_target"] = (d_sub["result"] == tr).astype(int)
+            grouped = d_sub.groupby(["decade", cat_col])["is_target"].mean().reset_index(name="value")
+
+        fig = px.line(
+            grouped, x="decade", y="value", color=cat_col, 
+            title=title, markers=True, 
+            color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+        fig.update_layout(
+            template="plotly_dark", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
+            margin=dict(l=20, r=20, t=40, b=20), xaxis_title="Década", yaxis_title="", 
+            yaxis_tickformat='.0%', hovermode="x unified", legend_title=""
+        )
+        return fig
+
+    return (
+        build_fig("g1", "1. Evolução Lance 1 Brancas"),
+        build_fig("g2", "2. Resposta das Pretas a 1.e4"),
+        build_fig("g3", "3. Resposta das Pretas a 1.d4"),
+        build_fig("g4", "4. Após e4 e5 Nf3 Nc6"),
+        build_fig("g5", "5. Após e4 c5 Nf3"),
+        build_fig("g6", "6. Após Siciliana Aberta"),
+        build_fig("g7", "7. Após e4 e6 d4 d5 (Francesa)"),
+        build_fig("g8", "8. Após e4 c6 d4 d5 (Caro-Kann)"),
+        build_fig("g9", "9. Após d4 d5 c4"),
+        build_fig("g10", "10. Após d4 Nf6 c4"),
+        build_fig("g11", "11. Após c4 (Inglesa)"),
+        build_fig("g12", "12. Após Nf3 (Reti)"),
+    )
+
+if __name__ == "__main__":
+    app.run(debug=True)
