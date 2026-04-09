@@ -39,12 +39,12 @@ def compute_stats(df):
         .reset_index()
     )
 
-    grouped["white_winrate"] = grouped["white_wins"] / grouped["games"]
-    grouped["black_winrate"] = grouped["black_wins"] / grouped["games"]
-    grouped["drawrate"] = grouped["draws"] / grouped["games"]
+    grouped["white_winrate"] = grouped["white_wins"] / grouped["games"] * 100
+    grouped["black_winrate"] = grouped["black_wins"] / grouped["games"] * 100
+    grouped["drawrate"] = grouped["draws"] / grouped["games"] * 100
     grouped["avg_score"] = (
-        grouped["white_wins"] + 0.5 * grouped["draws"]
-    ) / grouped["games"]
+        (grouped["white_wins"] + 0.5 * grouped["draws"]) / grouped["games"]
+    ) * 100
 
     return grouped
 
@@ -98,7 +98,7 @@ def plot_category(title, openings):
 
     data = data[data["opening"].isin(top_openings)]
 
-    data["frequency"] = data["games"] / data.groupby("decade")["games"].transform("sum")
+    data["frequency"] = data["games"] / data.groupby("decade")["games"].transform("sum") * 100
 
     if chart_type == "line":
         fig = px.line(
@@ -127,7 +127,8 @@ def plot_category(title, openings):
     fig.update_layout(
         template="plotly_dark",
         title=title,
-        legend_title="Opening"
+        legend_title="Opening",
+        yaxis_title=metric + " (%)"
     )
 
     st.plotly_chart(fig, use_container_width=True)
