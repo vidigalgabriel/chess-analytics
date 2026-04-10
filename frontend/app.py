@@ -4,11 +4,17 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 
-df = pd.read_csv("../data/chess_gamespre1995.csv")
+df = pd.read_csv("../data/final_dataset16002013.csv")
 df = df.dropna(subset=["moves", "result"])
 df["year"] = df["year"].astype(int)
 df["decade"] = (df["year"] // 10) * 10
 df["first_2_moves"] = df["moves"].apply(lambda x: " ".join(str(x).split()[:2]) if len(str(x).split()) >= 2 else str(x))
+
+df['white_win'] = (df['result'] == '1-0').astype(float)
+df['black_win'] = (df['result'] == '0-1').astype(float)
+df['draw'] = (df['result'] == '1/2-1/2').astype(float)
+df['score_white'] = df['white_win'] + (df['draw'] * 0.5)
+df['score_black'] = df['black_win'] + (df['draw'] * 0.5)
 
 def cat_g1(m):
     p = str(m).split()
@@ -117,7 +123,7 @@ def make_kpi_card(title, id_str, icon_color):
         ])
     ], className="shadow-sm mb-4", style={"backgroundColor": "#2b3035", "border": "none", "borderRadius": "10px"})
 
-def make_graph_card(id_str, height="350px"):
+def make_graph_card(id_str, height="400px"):
     return dbc.Card(
         dcc.Graph(id=id_str, style={"height": height}),
         className="shadow-lg mb-4",
@@ -151,7 +157,7 @@ app.layout = dbc.Container([
                         min=df["year"].min(),
                         max=df["year"].max(),
                         step=1,
-                        value=[1950, 2000],
+                        value=[1920, 2014],
                         marks={y: {'label': str(y), 'style': {'color': '#adb5bd', 'fontSize': '10px'}} for y in range(1600, 2025, 40)},
                         className="mb-4 mt-2"
                     ),
@@ -174,25 +180,38 @@ app.layout = dbc.Container([
         ], width=3),
         
         dbc.Col([
-            html.H4("Visão Geral do Período", className="text-light mb-3 mt-2 fw-bold"),
-            dbc.Row([
-                dbc.Col(make_graph_card("pie-results", "300px"), width=5),
-                dbc.Col(make_graph_card("bar-decades", "300px"), width=7)
-            ]),
-            
-            html.H4("Evolução Detalhada por Abertura", className="text-light mb-3 mt-4 fw-bold"),
-            dbc.Row([dbc.Col(make_graph_card("g1-plot"), width=6), dbc.Col(make_graph_card("g2-plot"), width=6)]),
-            dbc.Row([dbc.Col(make_graph_card("g3-plot"), width=6), dbc.Col(make_graph_card("g4-plot"), width=6)]),
-            dbc.Row([dbc.Col(make_graph_card("g5-plot"), width=6), dbc.Col(make_graph_card("g6-plot"), width=6)]),
-            dbc.Row([dbc.Col(make_graph_card("g7-plot"), width=6), dbc.Col(make_graph_card("g8-plot"), width=6)]),
-            dbc.Row([dbc.Col(make_graph_card("g9-plot"), width=6), dbc.Col(make_graph_card("g10-plot"), width=6)]),
-            dbc.Row([dbc.Col(make_graph_card("g11-plot"), width=6), dbc.Col(make_graph_card("g12-plot"), width=6)]),
-            
-            html.H4("Top 10 Inícios Mais Populares (2 Lances)", className="text-light mb-3 mt-4 fw-bold"),
-            dbc.Card(
-                dbc.CardBody(html.Div(id="top-table-container")),
-                className="shadow-lg mb-4",
-                style={"backgroundColor": "#2b3035", "border": "none", "borderRadius": "15px"}
+            dcc.Loading(
+                id="loading-content",
+                type="dot",
+                color="#17a2b8",
+                children=[
+                    html.H4("Visão Geral do Período", className="text-light mb-3 mt-2 fw-bold"),
+                    dbc.Row([
+                        dbc.Col(make_graph_card("pie-results", "350px"), width=4),
+                        dbc.Col(make_graph_card("bar-decades", "350px"), width=8)
+                    ]),
+                    
+                    html.H4("Evolução Detalhada por Abertura", className="text-light mb-3 mt-4 fw-bold"),
+                    dbc.Row([dbc.Col(make_graph_card("g1-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g2-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g3-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g4-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g5-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g6-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g7-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g8-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g9-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g10-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g11-plot"), width=12)]),
+                    dbc.Row([dbc.Col(make_graph_card("g12-plot"), width=12)]),
+                    
+                    html.H4("Top 10 Inícios Mais Populares (2 Lances)", className="text-light mb-3 mt-4 fw-bold"),
+                    dbc.Card(
+                        dbc.CardBody(html.Div(id="top-table-container")),
+                        className="shadow-lg mb-4",
+                        style={"backgroundColor": "#2b3035", "border": "none", "borderRadius": "15px"}
+                    )
+                ]
             )
         ], width=9)
     ], className="mb-4")
@@ -214,22 +233,25 @@ def update_dashboard(year_range, metric):
     dff = df[(df["year"] >= year_range[0]) & (df["year"] <= year_range[1])]
 
     total = len(dff)
-    w_wins = len(dff[dff["result"] == "1-0"])
-    b_wins = len(dff[dff["result"] == "0-1"])
-    draws = len(dff[dff["result"] == "1/2-1/2"])
+    w_wins = int(dff['white_win'].sum())
+    b_wins = int(dff['black_win'].sum())
+    draws = int(dff['draw'].sum())
 
     str_total = f"{total:,}".replace(",", ".")
     str_w_wins = f"{w_wins:,}".replace(",", ".") + f" ({w_wins/total:.1%} )" if total else "0"
     str_b_wins = f"{b_wins:,}".replace(",", ".") + f" ({b_wins/total:.1%} )" if total else "0"
     str_draws = f"{draws:,}".replace(",", ".") + f" ({draws/total:.1%} )" if total else "0"
 
+    pie_data = dff['result'].value_counts().reset_index()
+    pie_data.columns = ['result', 'count']
     fig_pie = px.pie(
-        dff, names="result", title="Distribuição de Resultados",
+        pie_data, names="result", values="count", title="Distribuição de Resultados",
         color="result", color_discrete_map={"1-0": "#28a745", "0-1": "#dc3545", "1/2-1/2": "#ffc107"}
     )
     fig_pie.update_layout(template="plotly_dark", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(t=40, b=10, l=10, r=10))
 
-    decades_count = dff.groupby("decade").size().reset_index(name="count")
+    decades_count = dff["decade"].value_counts().reset_index()
+    decades_count.columns = ["decade", "count"]
     fig_bar = px.bar(
         decades_count, x="decade", y="count", title="Volume de Partidas por Década",
         color_discrete_sequence=["#17a2b8"]
@@ -243,7 +265,7 @@ def update_dashboard(year_range, metric):
     table = dbc.Table.from_dataframe(top_moves, striped=True, bordered=False, hover=True, color="dark", style={"color": "white", "margin": "0"})
 
     def build_line_fig(cat_col, title):
-        d_sub = dff.dropna(subset=[cat_col]).copy()
+        d_sub = dff[dff[cat_col].notna()]
         if d_sub.empty:
             return px.line(title=title).update_layout(template="plotly_dark", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
 
@@ -252,18 +274,7 @@ def update_dashboard(year_range, metric):
             totals = grouped.groupby("decade")["count"].transform("sum")
             grouped["value"] = grouped["count"] / totals
         else:
-            if metric == "white_win":
-                d_sub["val"] = (d_sub["result"] == "1-0").astype(float)
-            elif metric == "black_win":
-                d_sub["val"] = (d_sub["result"] == "0-1").astype(float)
-            elif metric == "draw":
-                d_sub["val"] = (d_sub["result"] == "1/2-1/2").astype(float)
-            elif metric == "score_white":
-                d_sub["val"] = d_sub["result"].map({"1-0": 1.0, "1/2-1/2": 0.5, "0-1": 0.0}).fillna(0)
-            elif metric == "score_black":
-                d_sub["val"] = d_sub["result"].map({"0-1": 1.0, "1/2-1/2": 0.5, "1-0": 0.0}).fillna(0)
-            
-            grouped = d_sub.groupby(["decade", cat_col])["val"].mean().reset_index(name="value")
+            grouped = d_sub.groupby(["decade", cat_col])[metric].mean().reset_index(name="value")
 
         fig = px.line(grouped, x="decade", y="value", color=cat_col, title=title, markers=True, color_discrete_sequence=px.colors.qualitative.Pastel)
         fig.update_traces(hovertemplate='Valor: %{y:.2%}<extra>%{data.name}</extra>')

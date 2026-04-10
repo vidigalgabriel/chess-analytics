@@ -2,6 +2,11 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
+# Versão otimizada do processamento que utiliza mapeamento de resultados e 
+# dicionários para calcular métricas de desempenho em porcentagem. Foca na 
+# geração de registros estruturados para exportação em CSV e preparação 
+# de dados para visualização em dashboards.
+
 
 def _compute_result_metrics(group: pd.DataFrame) -> dict:
     total = len(group)

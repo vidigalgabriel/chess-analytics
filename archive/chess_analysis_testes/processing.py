@@ -1,6 +1,10 @@
 import pandas as pd
 import numpy as np
 
+# Realiza a classificação e categorização dos lances de abertura, identificando 
+# os movimentos das brancas e as respectivas respostas das pretas. O script 
+# aplica regras específicas para agrupar variantes (como as defesas contra d4) 
+# e organiza os dados em décadas para facilitar a análise de tendências.
 
 WHITE_MOVES = {"e4", "d4", "c4", "Nf3"}
 

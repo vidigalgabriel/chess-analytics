@@ -1,5 +1,11 @@
 import pandas as pd
 
+
+# Realiza o processamento estatístico dos dados, agrupando partidas por década. 
+# Calcula a popularidade (frequência) e a eficiência (winrate/score) das 
+# aberturas, analisando tanto o primeiro lance das brancas quanto as 
+# respostas das pretas.
+
 def load_data(path="data/processed_games.csv"):
     df = pd.read_csv(path)
 

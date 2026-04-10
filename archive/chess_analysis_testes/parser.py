@@ -5,6 +5,10 @@ from typing import Optional
 import io
 
 
+# Responsável por realizar a leitura e o parsing de arquivos PGN, filtrando 
+# partidas válidas e extraindo metadados cruciais como o ano, o resultado e 
+# os primeiros lances de cada jogador em notação SAN (Standard Algebraic Notation).
+
 def _extract_game_data(game: chess.pgn.Game) -> Optional[dict]:
     headers = game.headers
     result = headers.get("Result", "*")

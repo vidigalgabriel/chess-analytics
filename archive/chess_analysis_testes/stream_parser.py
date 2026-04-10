@@ -3,6 +3,11 @@ import chess.pgn
 import pandas as pd
 import os
 
+# Analisador de partidas em tempo real que extrai metadados de arquivos PGN e 
+# utiliza uma lógica de árvore de decisão para classificar as aberturas com 
+# base na sequência de lances. O script processa os dados em blocos para 
+# otimizar o uso de memória e exporta os resultados filtrados diretamente para CSV.
+
 def classify_opening(m):
     try:
         if m[0] == "e4" and m[1] == "e5":

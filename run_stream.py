@@ -1,8 +1,8 @@
 # run_stream.py
 from chess_analysis.stream_parser import process_pgn_stream
 
-pgn_path = r""
-output_csv = r""
+pgn_path = r"C:\Users\vidig\Desktop\Data-Analyst-Python\data\caissapng_pre2013.pgn"
+output_csv = r"C:\Users\vidig\Desktop\Data-Analyst-Python\data\chess_gamespre2013.csv"
 
 process_pgn_stream(
     pgn_path=pgn_path,

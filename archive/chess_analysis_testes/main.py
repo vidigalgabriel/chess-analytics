@@ -1,10 +1,15 @@
 import sys
 from pathlib import Path
 
-from parser import load_games
-from processing import process_games
-from analytics import compute_metrics, export_csv, prepare_for_visualization
+from archive.chess_analysis_testes.parser import load_games
+from archive.chess_analysis_testes.processing import process_games
+from archive.chess_analysis_testes.analytics import compute_metrics, export_csv, prepare_for_visualization
 
+
+# Arquivo principal que coordena o pipeline completo: carrega arquivos PGN, 
+# aplica o tratamento de dados e executa as análises estatísticas. Finaliza 
+# exportando os resultados consolidados para arquivos CSV organizados por 
+# década e ano, prontos para uso em ferramentas de visualização.
 
 DATA_DIR = Path(__file__).parent / "data"
 OUTPUT_DIR = Path(__file__).parent / "output"
