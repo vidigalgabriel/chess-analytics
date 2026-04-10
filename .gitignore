@@ -6,6 +6,9 @@ venv/
 data/*
 !data/.gitkeep
 
+data/*.csv
+data/*.pgn
+
 __pycache__/
 *.pyc
 *.pyo
