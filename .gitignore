@@ -3,7 +3,6 @@ venv/
 
 *.pgn
 
-data/*
 !data/.gitkeep
 
 data/*.pgn
