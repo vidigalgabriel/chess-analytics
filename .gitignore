@@ -41,7 +41,10 @@ npm-debug.log
 yarn-error.log
 
 venv/
-data/
 node_modules/
 __pycache__/
 .env
+
+data/*
+!data/.gitkeep
+*.csv
