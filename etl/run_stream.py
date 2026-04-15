@@ -5,8 +5,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from archive.chess_analysis_testes.stream_parser import process_pgn_stream
 
-pgn_path = r"C:\Users\vidig\Desktop\Data-Analyst-Python\data\caissapng_pre2013.pgn"
-output_csv = r"C:\Users\vidig\Desktop\Data-Analyst-Python\data\chess_gamespre2013.csv"
+pgn_path = r"\data\caissapng_pre2013.pgn"
+output_csv = r"\data\chess_gamespre2013.csv"
 
 process_pgn_stream(
     pgn_path=pgn_path,
