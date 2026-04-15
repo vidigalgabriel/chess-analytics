@@ -89,3 +89,23 @@ Bash
 cd frontend
 python app.py
 Acesse o painel no seu navegador através do endereço gerado no terminal (geralmente http://127.0.0.1:8050).
+
+Interface em React + API
+Além do dashboard em Dash, o projeto conta com uma arquitetura moderna separando o Frontend (React) do Backend (API), oferecendo maior performance e flexibilidade.
+
+⚙️ Como Rodar a Versão React
+Para executar esta versão, você precisará de dois terminais:
+
+1. Iniciar o Backend (API):
+
+Bash
+cd backend
+# Instale as dependências necessárias (ex: pip install -r requirements.txt)
+python main.py
+2. Iniciar o Frontend (React):
+
+Bash
+cd frontend-react
+npm install
+npm start
+Acesse a aplicação em http://localhost:3000.
